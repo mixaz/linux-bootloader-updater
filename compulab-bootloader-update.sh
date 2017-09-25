@@ -1,8 +1,8 @@
 #! /bin/bash
 #
-# CompuLab CM-FX6 module boot loader update utility
+# CompuLab modules boot loader update utility
 #
-# Copyright (C) 2013-2015 CompuLab, Ltd.
+# Copyright (C) 2013-2017 CompuLab, Ltd.
 # Author: Igor Grinberg <grinberg@compulab.co.il>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -15,9 +15,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-UPDATER_VERSION="2.4.0"
+UPDATER_VERSION="3.0.0-devel"
 UPDATER_VERSION_DATE="Sep 25 2017"
-UPDATER_BANNER="CompuLab CM-FX6 (Utilite) boot loader update utility ${UPDATER_VERSION} (${UPDATER_VERSION_DATE})"
+UPDATER_BANNER="CompuLab boot loader update utility ${UPDATER_VERSION} (${UPDATER_VERSION_DATE})"
 
 NORMAL="\033[0m"
 WARN="\033[33;1m"
