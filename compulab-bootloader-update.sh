@@ -24,13 +24,16 @@ WARN="\033[33;1m"
 BAD="\033[31;1m"
 BOLD="\033[1m"
 GOOD="\033[32;1m"
+BLOCK=1024
 
+# offset is in units of BLOCK
 declare -A board_cm_fx6=(
 	[name]="CM-FX6"
 	[eeprom_dev]="/sys/bus/i2c/devices/2-0050/eeprom"
 	[file]="cm-fx6-firmware"
 	[mtd_dev]="mtd0"
 	[mtd_dev_file]="/dev/mtd0"
+	[offset]=0
 )
 board_list=(board_cm_fx6)
 declare -A board
@@ -188,7 +191,7 @@ function erase_spi_flash() {
 function write_bootloader() {
 	good_msg "Writing boot loader to the SPI flash..."
 
-	DD if=${board[file]} of=${board[mtd_dev_file]}
+	DD if=${board[file]} of=${board[mtd_dev_file]} bs=$BLOCK skip=${board[offset]} seek=1
 	if [ $? -ne 0 ]; then
 		bad_msg "Failed writing boot loader to the SPI flash!"
 		bad_msg "If you reboot, your system might not boot anymore!"
@@ -204,9 +207,11 @@ function check_bootloader() {
 	good_msg "Checking boot loader in the SPI flash..."
 
 	local test_file="${board[file]}.test"
-	local size=$((`du -L ${board[file]} | cut -f1`*1024))
+	local size=$((`du -L ${board[file]} | cut -f1`))
+	local short_size=$((size-${board[offset]}))
 
-	DD if=${board[mtd_dev_file]} of=$test_file bs=$size count=1
+	{ dd if=/dev/zero count=$size bs=$BLOCK | tr '\000' '\377' > $test_file; } &> /dev/null
+	DD if=${board[mtd_dev_file]} of=$test_file bs=$BLOCK skip=1 seek=${board[offset]} count=$short_size
 
 	diff ${board[file]} $test_file > /dev/null
 	if [ $? -ne 0 ]; then
@@ -298,12 +303,19 @@ function reset_environment() {
 	return 1;
 }
 
+# Update firmware header offset in the file
+function update_offset() {
+	local offset=`hexdump -v -e '"%_ad" 16/1 " %02X" "\n"' ${board[file]} | grep -E -m 1 "^[0-9]+ D1 ([0-9A-F]{2} ){2}4[01]" | awk '{print $1}'`
+	board[offset]=$(($offset/$BLOCK))
+}
+
 #main()
 echo -e "\n${UPDATER_BANNER}\n"
 
 check_utilities			|| error_exit 4;
 check_board			|| error_exit 3;
 find_bootloader_file		|| error_exit 1;
+update_offset			|| error_exit 8;
 check_spi_flash			|| error_exit 2;
 check_bootloader_versions	|| exit 0;
 
