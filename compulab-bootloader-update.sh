@@ -35,7 +35,15 @@ declare -A board_cm_fx6=(
 	[mtd_dev_file]="/dev/mtd0"
 	[offset]=0
 )
-board_list=(board_cm_fx6)
+declare -A board_cl_som_imx7=(
+	[name]="CL-SOM-iMX7"
+	[eeprom_dev]="/sys/bus/i2c/devices/1-0050/eeprom"
+	[file]="cl-som-imx7-firmware"
+	[mtd_dev]="mtd0"
+	[mtd_dev_file]="/dev/mtd0"
+	[offset]=0
+)
+board_list=(board_cm_fx6 board_cl_som_imx7)
 declare -A board
 
 function good_msg() {
