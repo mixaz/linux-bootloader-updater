@@ -214,6 +214,10 @@ function check_bootloader() {
 
 	{ dd if=/dev/zero count=$size bs=$BLOCK | tr '\000' '\377' > $test_file; } &> /dev/null
 	DD if=${board[mtd_dev_file]} of=$test_file bs=$BLOCK skip=1 seek=${board[offset]} count=$short_size
+	if [ $? -ne 0 ]; then
+		failure_msg "Failed reading boot loader from the SPI flash!"
+		return 1;
+	fi
 
 	diff ${board[file]} $test_file > /dev/null
 	if [ $? -ne 0 ]; then
