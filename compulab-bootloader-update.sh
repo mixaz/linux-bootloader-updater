@@ -25,6 +25,16 @@ BAD="\033[31;1m"
 BOLD="\033[1m"
 GOOD="\033[32;1m"
 
+declare -A board_cm_fx6=(
+	[name]="CM-FX6"
+	[eeprom_dev]="/sys/bus/i2c/devices/2-0050/eeprom"
+	[file]="cm-fx6-firmware"
+	[mtd_dev]="mtd0"
+	[mtd_dev_file]="/dev/mtd0"
+)
+board_list=(board_cm_fx6)
+declare -A board
+
 function good_msg() {
 	local msg_string=$1
 	msg_string="${msg_string:-...}"
@@ -82,21 +92,14 @@ function confirm() {
 	return 1;
 }
 
-EEPROM_DEV="/sys/bus/i2c/devices/2-0050/eeprom"
-MTD_DEV="mtd0"
-MTD_DEV_FILE="/dev/${MTD_DEV}"
-CPU_NAME=""
-DRAM_NAME=""
-BOOTLOADER_FILE="cm-fx6-firmware"
-
 function find_bootloader_file() {
-	read -e -p "Please input firmware file path (or press ENTER to use \"cm-fx6-firmware\"): " filepath
+	read -e -p "Please input firmware file path (or press ENTER to use \"${board[file]}\"): " filepath
 	if [[ -n $filepath ]]; then
-		BOOTLOADER_FILE=`eval "echo $filepath"`
+		board[file]=`eval "echo $filepath"`
 	fi
 
-	good_msg "Looking for boot loader image file: $BOOTLOADER_FILE"
-	if [ ! -s $BOOTLOADER_FILE ]; then
+	good_msg "Looking for boot loader image file: ${board[file]}"
+	if [ ! -s ${board[file]} ]; then
 		bad_msg "Can't find boot loader image file for the board"
 		return 1;
 	fi
@@ -106,16 +109,16 @@ function find_bootloader_file() {
 }
 
 function check_spi_flash() {
-	good_msg "Looking for SPI flash: $MTD_DEV"
+	good_msg "Looking for SPI flash: ${board[mtd_dev]}"
 
-	grep -qE "$MTD_DEV: [0-f]+ [0-f]+ \"uboot\"" /proc/mtd
+	grep -qE "${board[mtd_dev]}: [0-f]+ [0-f]+ \"uboot\"" /proc/mtd
 	if [ $? -ne 0 ]; then
-		bad_msg "Can't find $MTD_DEV device, is the SPI flash support enabled in kernel?"
+		bad_msg "Can't find ${board[mtd_dev]} device, is the SPI flash support enabled in kernel?"
 		return 1;
 	fi
 
-	if [ ! -c $MTD_DEV_FILE ]; then
-		bad_msg "Can't find $MTD_DEV device special file: $MTD_DEV_FILE"
+	if [ ! -c ${board[mtd_dev_file]} ]; then
+		bad_msg "Can't find ${board[mtd_dev]} device special file: ${board[mtd_dev_file]}"
 		return 1;
 	fi
 
@@ -129,9 +132,9 @@ function get_uboot_version() {
 }
 
 function check_bootloader_versions() {
-	local flash_version=`echo \`get_uboot_version $MTD_DEV_FILE\``
-	local file_version=`echo \`get_uboot_version $BOOTLOADER_FILE\``
-	local file_size=`du -hL $BOOTLOADER_FILE | cut -f1`
+	local flash_version=`echo \`get_uboot_version ${board[mtd_dev_file]}\``
+	local file_version=`echo \`get_uboot_version ${board[file]}\``
+	local file_size=`du -hL ${board[file]} | cut -f1`
 
 	good_msg "Current U-Boot version in SPI flash:\t$flash_version"
 	good_msg "New U-Boot version in file:\t\t$file_version ($file_size)"
@@ -170,7 +173,7 @@ function check_utilities() {
 function erase_spi_flash() {
 	good_msg "Erasing SPI flash..."
 
-	flash_erase $MTD_DEV_FILE 0 0
+	flash_erase ${board[mtd_dev_file]} 0 0
 	if [ $? -ne 0 ]; then
 		bad_msg "Failed erasing SPI flash!"
 		bad_msg "If you reboot, your system might not boot anymore!"
@@ -185,7 +188,7 @@ function erase_spi_flash() {
 function write_bootloader() {
 	good_msg "Writing boot loader to the SPI flash..."
 
-	DD if=$BOOTLOADER_FILE of=$MTD_DEV_FILE
+	DD if=${board[file]} of=${board[mtd_dev_file]}
 	if [ $? -ne 0 ]; then
 		bad_msg "Failed writing boot loader to the SPI flash!"
 		bad_msg "If you reboot, your system might not boot anymore!"
@@ -200,12 +203,12 @@ function write_bootloader() {
 function check_bootloader() {
 	good_msg "Checking boot loader in the SPI flash..."
 
-	local test_file="${BOOTLOADER_FILE}.test"
-	local size=$((`du -L $BOOTLOADER_FILE | cut -f1`*1024))
+	local test_file="${board[file]}.test"
+	local size=$((`du -L ${board[file]} | cut -f1`*1024))
 
-	DD if=$MTD_DEV_FILE of=$test_file bs=$size count=1
+	DD if=${board[mtd_dev_file]} of=$test_file bs=$size count=1
 
-	diff $BOOTLOADER_FILE $test_file > /dev/null
+	diff ${board[file]} $test_file > /dev/null
 	if [ $? -ne 0 ]; then
 		bad_msg "Boot loader check failed! Please retry the update procedure!"
 		return 1;
@@ -217,16 +220,40 @@ function check_bootloader() {
 	return 0;
 }
 
-function check_board() {
-	good_msg "Checking that board is CM-FX6 (Utilite)..."
-	local module=`hexdump -C $EEPROM_DEV | grep 00000080 | sed 's/.*|\(CM-FX6\).*/\1/g'`
-	if [ "$module" == "CM-FX6" ]; then
-		good_msg "...Done"
-		return 0;
+function check_board_specific() {
+	if [ ! -e ${board[eeprom_dev]} ]; then
+		return 1;
 	fi;
 
-	bad_msg "This board is not a CM-FX6 (Utilite)!"
-	return 1;
+	local module=`hexdump -C ${board[eeprom_dev]} | grep 00000080 | sed "s/.*|\(${board[name]}\).*/\1/g"`
+
+	if [ "$module" != ${board[name]} ]; then
+		return 1;
+	fi;
+
+	good_msg "Board ${board[name]} detected"
+	return 0;
+}
+
+# Copy specific board parameters to associative array board
+function board_update() {
+	declare -n orig_array="$1"
+
+	for key in "${!orig_array[@]}"; do
+		board["$key"]="${orig_array["$key"]}"
+	done
+}
+
+function check_board() {
+	good_msg "Checking that the board is supported"
+
+	for board_arr in ${board_list[@]}; do
+		board_update $board_arr
+		check_board_specific && return 0
+	done
+
+	bad_msg "This board is not supported!"
+	return 1
 }
 
 function error_exit() {
