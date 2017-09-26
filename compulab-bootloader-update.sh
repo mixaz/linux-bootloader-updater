@@ -182,6 +182,7 @@ function check_utilities() {
 	check_utility "hexdump"		|| return 1;
 	check_utility "dd"		|| return 1;
 	check_utility "flash_erase"	|| return 1;
+	check_utility "flash_unlock"    || return 1;
 
 	good_msg "...Done"
 	return 0;
@@ -284,7 +285,12 @@ function env_set() {
 	local var=$1
 	local value=$2
 
+	# Unlock the SPI flash.
+	# The U-Boot environment is stored in /dev/mtd1.
+	# The reason for the need to unlock /dev/mtd2 should be investigated.
+	flash_unlock /dev/mtd2 0
 	fw_setenv $var "$value"
+	flash_unlock /dev/mtd2 0
 
 	local match=`fw_printenv $var | grep -e "^$var=$value\$" | wc -l`
 	[ $match -eq 1 ] && return 0;
