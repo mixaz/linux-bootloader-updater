@@ -56,6 +56,12 @@ function warn_msg() {
 	echo -e "${WARN}**${NORMAL}${BOLD} ${msg_string} ${NORMAL}"
 }
 
+function failure_msg() {
+		bad_msg "$1"
+		bad_msg "If you reboot, your system might not boot anymore!"
+		bad_msg "Please, try re-installing mtd-utils package and retry!"
+}
+
 function DD() {
 	dd $* &> /dev/null & pid=$!
 
@@ -178,9 +184,7 @@ function erase_spi_flash() {
 
 	flash_erase ${board[mtd_dev_file]} 0 0
 	if [ $? -ne 0 ]; then
-		bad_msg "Failed erasing SPI flash!"
-		bad_msg "If you reboot, your system might not boot anymore!"
-		bad_msg "Please, try re-installing mtd-utils package and retry!"
+		failure_msg "Failed erasing SPI flash!"
 		return 1;
 	fi
 
@@ -193,9 +197,7 @@ function write_bootloader() {
 
 	DD if=${board[file]} of=${board[mtd_dev_file]} bs=$BLOCK skip=${board[offset]} seek=1
 	if [ $? -ne 0 ]; then
-		bad_msg "Failed writing boot loader to the SPI flash!"
-		bad_msg "If you reboot, your system might not boot anymore!"
-		bad_msg "Please, try re-installing mtd-utils package and retry!"
+		failure_msg "Failed writing boot loader to the SPI flash!"
 		return 1;
 	fi
 
@@ -215,7 +217,7 @@ function check_bootloader() {
 
 	diff ${board[file]} $test_file > /dev/null
 	if [ $? -ne 0 ]; then
-		bad_msg "Boot loader check failed! Please retry the update procedure!"
+		failure_msg "Boot loader check failed!"
 		return 1;
 	fi
 
