@@ -325,8 +325,8 @@ function reset_environment() {
 
 # Update firmware header offset in the file
 function update_offset() {
-	local offset=`hexdump -v -e '"%_ad" 16/1 " %02X" "\n"' ${board[file]} | grep -E -m 1 "^[0-9]+ D1 ([0-9A-F]{2} ){2}4[01]" | awk '{print $1}'`
-	board[offset]=$(($offset/$BLOCK))
+	local offset=`hexdump -C ${board[file]} | grep -E -m1 "^[0-f]+[ ]+d[12] ([0-f]{2} ){2}4[01]" | awk '{print $1}'`
+	board[offset]=$((0x$offset/$BLOCK))
 }
 
 #main()
