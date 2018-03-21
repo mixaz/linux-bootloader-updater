@@ -288,9 +288,9 @@ function env_set() {
 	# Unlock the SPI flash.
 	# The U-Boot environment is stored in /dev/mtd1.
 	# The reason for the need to unlock /dev/mtd2 should be investigated.
-	flash_unlock /dev/mtd2 0
+	flash_unlock /dev/mtd2 0 > /dev/null 2>&1
 	fw_setenv $var "$value"
-	flash_unlock /dev/mtd2 0
+	flash_unlock /dev/mtd2 0 > /dev/null 2>&1
 
 	local match=`fw_printenv $var | grep -e "^$var=$value\$" | wc -l`
 	[ $match -eq 1 ] && return 0;
