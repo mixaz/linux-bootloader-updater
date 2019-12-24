@@ -15,8 +15,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-UPDATER_VERSION="3.0.1"
-UPDATER_VERSION_DATE="Mar 21 2018"
+UPDATER_VERSION="3.0.2"
+UPDATER_VERSION_DATE="Dec 24 2019"
 UPDATER_BANNER="CompuLab boot loader update utility ${UPDATER_VERSION} (${UPDATER_VERSION_DATE})"
 
 NORMAL="\033[0m"
@@ -34,6 +34,7 @@ declare -A board_cm_fx6=(
 	[mtd_dev]="mtd0"
 	[mtd_dev_file]="/dev/mtd0"
 	[offset]=0
+	[offset_mtd]=1
 )
 declare -A board_cl_som_imx7=(
 	[name]="CL-SOM-iMX7"
@@ -42,8 +43,17 @@ declare -A board_cl_som_imx7=(
 	[mtd_dev]="mtd0"
 	[mtd_dev_file]="/dev/mtd0"
 	[offset]=0
+	[offset_mtd]=1
 )
-board_list=(board_cm_fx6 board_cl_som_imx7)
+declare -A board_cl_som_imx8=(
+	[name]="CL-SOM-iMX8"
+	[file]="imx-boot-cl-som-imx8x-sf.bin-flash_spl_flexspi"
+	[mtd_dev]="mtd0"
+	[mtd_dev_file]="/dev/mtd0"
+	[offset]=0
+	[offset_mtd]=0
+)
+board_list=(board_cm_fx6 board_cl_som_imx7 board_cl_som_imx8)
 declare -A board
 
 function good_msg() {
@@ -204,7 +214,7 @@ function erase_spi_flash() {
 function write_bootloader() {
 	good_msg "Writing boot loader to the SPI flash..."
 
-	DD if=${board[file]} of=${board[mtd_dev_file]} bs=$BLOCK skip=${board[offset]} seek=1
+	DD if=${board[file]} of=${board[mtd_dev_file]} bs=$BLOCK skip=${board[offset]} seek=${board[offset_mtd]}
 	if [ $? -ne 0 ]; then
 		failure_msg "Failed writing boot loader to the SPI flash!"
 		return 1;
@@ -222,7 +232,7 @@ function check_bootloader() {
 	local short_size=$((size-${board[offset]}))
 
 	{ dd if=/dev/zero count=$size bs=$BLOCK | tr '\000' '\377' > $test_file; } &> /dev/null
-	DD if=${board[mtd_dev_file]} of=$test_file bs=$BLOCK skip=1 seek=${board[offset]} count=$short_size
+	DD if=${board[mtd_dev_file]} of=$test_file bs=$BLOCK skip=${board[offset_mtd]} seek=${board[offset]} count=$short_size
 	if [ $? -ne 0 ]; then
 		failure_msg "Failed reading boot loader from the SPI flash!"
 		return 1;
@@ -333,7 +343,9 @@ function update_offset() {
 echo -e "\n${UPDATER_BANNER}\n"
 
 check_utilities			|| error_exit 4;
-check_board			|| error_exit 3;
+#check_board			|| error_exit 3;
+board_update board_cl_som_imx8
+
 find_bootloader_file		|| error_exit 1;
 update_offset			|| error_exit 8;
 check_spi_flash			|| error_exit 2;
